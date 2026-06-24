@@ -4,8 +4,11 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../utils/constants';
 import { LevelManager } from '../systems/LevelManager';
 import { playGameOverSound } from '../utils/sounds';
+import { HAPTIC } from '../utils/haptics';
+import { ParticleManager } from '../utils/particles';
 
 export class GameOverScene extends Phaser.Scene {
+  private particles!: ParticleManager;
   constructor() {
     super({ key: 'GameOverScene' });
   }
@@ -13,6 +16,8 @@ export class GameOverScene extends Phaser.Scene {
   create(data: { won: boolean; score: number; stars: number; levelManager: LevelManager }) {
     const { won, score, stars, levelManager } = data;
     playGameOverSound(won);
+    HAPTIC.gameOver(won);
+    this.particles = new ParticleManager(this);
 
     // Dark overlay
     const bg = this.add.graphics();
@@ -36,6 +41,12 @@ export class GameOverScene extends Phaser.Scene {
     this.tweens.add({
       targets: big, scale: 1, duration: 400, ease: 'Back.easeOut',
     });
+
+    // Confetti for win
+    if (won) {
+      this.particles.confetti(40);
+      this.particles.screenFlash(0xffd43b, 0.08);
+    }
 
     // Stars
     if (won && stars > 0) {

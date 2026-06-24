@@ -50,6 +50,15 @@ export class Tile extends Phaser.GameObjects.Container {
     this.setSize(TILE_SIZE, TILE_SIZE);
     this.setInteractive();
     scene.add.existing(this);
+
+    // Idle float animation
+    scene.tweens.add({
+      targets: this.sprite,
+      y: { from: -1, to: 1 },
+      duration: 1500 + Math.random() * 1000,
+      yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      delay: Math.random() * 1000,
+    });
   }
 
   private drawBg() {

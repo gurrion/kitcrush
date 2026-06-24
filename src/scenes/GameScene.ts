@@ -15,11 +15,14 @@ import {
   playMatchSound, playSwapSound, playInvalidSwapSound,
   playCascadeSound, playPowerUpSound, playSelectSound,
 } from '../utils/sounds';
+import { HAPTIC } from '../utils/haptics';
+import { ParticleManager } from '../utils/particles';
 
 export class GameScene extends Phaser.Scene {
   private board!: Board;
   private scoreManager!: ScoreManager;
   private levelManager!: LevelManager;
+  private particles!: ParticleManager;
   private selectedTile: Tile | null = null;
   private swipeStartX = 0;
   private swipeStartY = 0;
@@ -62,6 +65,7 @@ export class GameScene extends Phaser.Scene {
     );
 
     this.board = new Board(this);
+    this.particles = new ParticleManager(this);
     this.board.setCallbacks(
       (match) => this.onMatchFound(match),
       (depth) => this.onCascade(depth),
@@ -258,6 +262,7 @@ export class GameScene extends Phaser.Scene {
       this.selectedTile = clicked;
       clicked.select();
       playSelectSound();
+      HAPTIC.light();
     });
 
     this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
@@ -289,6 +294,7 @@ export class GameScene extends Phaser.Scene {
       this.checkGameState();
     } else {
       playInvalidSwapSound();
+      HAPTIC.invalid();
       // Shake both tiles
       this.cameras.main.shake(100, 0.003);
     }
@@ -297,23 +303,44 @@ export class GameScene extends Phaser.Scene {
   private onMatchFound(match: Match) {
     const points = this.scoreManager.addMatchScore(match.tiles.length);
     playMatchSound(this.scoreManager.combo);
+    HAPTIC.match();
 
-    // Show floating score at match center
+    // Match center
     let cx = 0, cy = 0;
     for (const t of match.tiles) { cx += t.x; cy += t.y; }
     cx /= match.tiles.length;
     cy /= match.tiles.length;
+
+    // Particles
+    const color = KITTEN_COLORS[match.tiles[0].kittenType];
+    this.particles.matchExplosion(cx, cy, color, 10 + match.tiles.length * 2);
+    this.particles.sparkleRing(cx, cy, color);
+
+    // Floating score
     this.showFloatingScore(cx, cy, points, this.scoreManager.combo);
+
+    // Screen flash for big matches
+    if (match.tiles.length >= 4) {
+      this.particles.screenFlash(color, 0.1);
+    }
   }
 
   private onCascade(depth: number) {
     playCascadeSound(depth);
-    if (depth >= 2) this.cameras.main.shake(100, 0.004 * depth);
+    HAPTIC.combo(depth);
+    this.particles.comboFire(GAME_WIDTH / 2, GAME_HEIGHT / 2, depth);
+    if (depth >= 2) this.cameras.main.shake(120, 0.004 * depth);
   }
 
-  private onPowerUpActivated(_t: string, _c: number, _r: number) {
+  private onPowerUpActivated(type: string, col: number, row: number) {
     playPowerUpSound();
-    this.cameras.main.shake(200, 0.008);
+    HAPTIC.powerUp();
+    const x = col * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_X + TILE_SIZE / 2;
+    const y = row * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_Y + TILE_SIZE / 2;
+    const color = KITTEN_COLORS[Math.floor(Math.random() * 6)];
+    this.particles.shockwave(x, y, color);
+    this.particles.screenFlash(color, 0.12);
+    this.cameras.main.shake(200, 0.01);
   }
 
   private checkGameState() {
