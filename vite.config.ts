@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/kitcrush/',
+  base: './',
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
