@@ -1,19 +1,18 @@
 // KitCrush — Game Constants
 
+export const GAME_WIDTH = 480;
+export const GAME_HEIGHT = 720;
+
 export const BOARD_COLS = 8;
 export const BOARD_ROWS = 8;
-export const TILE_SIZE = 64;
+export const TILE_SIZE = 52;
 export const TILE_GAP = 4;
-export const BOARD_OFFSET_X = 16;
-export const BOARD_OFFSET_Y = 160;
+export const BOARD_OFFSET_X = (GAME_WIDTH - BOARD_COLS * (TILE_SIZE + TILE_GAP) + TILE_GAP) / 2;
+export const BOARD_OFFSET_Y = 140;
 
-export const GAME_WIDTH = BOARD_COLS * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_X * 2;
-export const GAME_HEIGHT = BOARD_ROWS * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_Y + 80;
-
-export const SWAP_DURATION = 200;
-export const FALL_DURATION = 150;
-export const MATCH_CLEAR_DURATION = 300;
-export const REFILL_DELAY = 100;
+export const SWAP_DURATION = 180;
+export const FALL_DURATION = 140;
+export const MATCH_CLEAR_DURATION = 250;
 
 export const KITTEN_TYPES = 6;
 
@@ -27,18 +26,6 @@ export const KITTEN_COLORS = [
 ];
 
 export const KITTEN_EMOJIS = ['😺', '😸', '😻', '🙀', '😹', '😽'];
-
-export const KITTEN_NAMES = [
-  'Michi Rojo',
-  'Michi Naranja',
-  'Michi Amarillo',
-  'Michi Verde',
-  'Michi Azul',
-  'Michi Morado',
-];
-
-export const SCORE_PER_TILE = 10;
-export const COMBO_MULTIPLIER = 1.5;
 
 export const LEVELS = [
   { moves: 25, target: 1000,  name: 'Barrio 1' },
@@ -59,7 +46,3 @@ export const LEVELS = [
 ];
 
 export type PowerUpType = 'row' | 'column' | 'bomb' | 'rainbow';
-
-export const POWER_UP_CHANCE = 0.08; // 8% chance per match-4+
-export const MATCH_4_TYPE: PowerUpType = 'row';
-export const MATCH_5_TYPE: PowerUpType = 'rainbow';

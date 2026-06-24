@@ -1,188 +1,125 @@
-// KitCrush — Tile (Kitten piece)
+// KitCrush — Tile
 
 import Phaser from 'phaser';
-import { TILE_SIZE, KITTEN_COLORS, KITTEN_EMOJIS, PowerUpType } from '../utils/constants';
+import { TILE_SIZE, TILE_GAP, BOARD_OFFSET_X, BOARD_OFFSET_Y, KITTEN_COLORS, KITTEN_EMOJIS, PowerUpType } from '../utils/constants';
 
 export class Tile extends Phaser.GameObjects.Container {
   public col: number;
   public row: number;
   public kittenType: number;
   public powerUp: PowerUpType | null = null;
-  public isSelected: boolean = false;
-  public isMatched: boolean = false;
+  public isSelected = false;
+  public isMatched = false;
 
   private bg: Phaser.GameObjects.Graphics;
-  private emojiText: Phaser.GameObjects.Text;
-  private selectedOutline: Phaser.GameObjects.Graphics;
-  private powerUpIndicator: Phaser.GameObjects.Graphics;
+  private selOutline: Phaser.GameObjects.Graphics;
+  private puIndicator: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene, col: number, row: number, kittenType: number) {
-    const x = col * (TILE_SIZE + 4) + 16 + TILE_SIZE / 2;
-    const y = row * (TILE_SIZE + 4) + 160 + TILE_SIZE / 2;
-
+    const x = col * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_X + TILE_SIZE / 2;
+    const y = row * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_Y + TILE_SIZE / 2;
     super(scene, x, y);
 
     this.col = col;
     this.row = row;
     this.kittenType = kittenType;
 
-    // Background rounded rect
+    // Background
     this.bg = scene.add.graphics();
     this.drawBg();
     this.add(this.bg);
 
-    // Emoji kitten
-    this.emojiText = scene.add.text(0, 0, KITTEN_EMOJIS[kittenType], {
-      fontSize: '36px',
-      align: 'center',
+    // Emoji
+    const emoji = scene.add.text(0, 0, KITTEN_EMOJIS[kittenType], {
+      fontSize: `${Math.floor(TILE_SIZE * 0.6)}px`, align: 'center',
     }).setOrigin(0.5);
-    this.add(this.emojiText);
+    this.add(emoji);
 
-    // Selection outline (hidden by default)
-    this.selectedOutline = scene.add.graphics();
-    this.selectedOutline.setVisible(false);
-    this.add(this.selectedOutline);
+    // Selection outline
+    this.selOutline = scene.add.graphics().setVisible(false);
+    this.add(this.selOutline);
 
-    // Power-up indicator (hidden by default)
-    this.powerUpIndicator = scene.add.graphics();
-    this.powerUpIndicator.setVisible(false);
-    this.add(this.powerUpIndicator);
+    // Power-up indicator
+    this.puIndicator = scene.add.graphics().setVisible(false);
+    this.add(this.puIndicator);
 
     this.setSize(TILE_SIZE, TILE_SIZE);
     this.setInteractive();
-
     scene.add.existing(this);
   }
 
   private drawBg() {
+    const s = TILE_SIZE;
     this.bg.clear();
     this.bg.fillStyle(KITTEN_COLORS[this.kittenType], 0.3);
-    this.bg.fillRoundedRect(-TILE_SIZE / 2, -TILE_SIZE / 2, TILE_SIZE, TILE_SIZE, 12);
+    this.bg.fillRoundedRect(-s / 2, -s / 2, s, s, 10);
     this.bg.lineStyle(2, KITTEN_COLORS[this.kittenType], 0.6);
-    this.bg.strokeRoundedRect(-TILE_SIZE / 2, -TILE_SIZE / 2, TILE_SIZE, TILE_SIZE, 12);
+    this.bg.strokeRoundedRect(-s / 2, -s / 2, s, s, 10);
   }
 
   select() {
     this.isSelected = true;
-    this.selectedOutline.clear();
-    this.selectedOutline.lineStyle(3, 0xffffff, 1);
-    this.selectedOutline.strokeRoundedRect(-TILE_SIZE / 2 - 2, -TILE_SIZE / 2 - 2, TILE_SIZE + 4, TILE_SIZE + 4, 14);
-    this.selectedOutline.setVisible(true);
-
-    // Bounce effect
+    const s = TILE_SIZE;
+    this.selOutline.clear();
+    this.selOutline.lineStyle(3, 0xffffff, 1);
+    this.selOutline.strokeRoundedRect(-s / 2 - 2, -s / 2 - 2, s + 4, s + 4, 12);
+    this.selOutline.setVisible(true);
     this.scene.tweens.add({
-      targets: this,
-      scaleX: 1.15,
-      scaleY: 1.15,
-      duration: 100,
-      yoyo: true,
-      ease: 'Back.easeOut',
+      targets: this, scaleX: 1.12, scaleY: 1.12,
+      duration: 80, yoyo: true, ease: 'Back.easeOut',
     });
   }
 
   deselect() {
     this.isSelected = false;
-    this.selectedOutline.setVisible(false);
+    this.selOutline.setVisible(false);
   }
 
   setPowerUp(type: PowerUpType) {
     this.powerUp = type;
-    this.powerUpIndicator.clear();
-
-    let color: number;
-    let symbol: string;
-
-    switch (type) {
-      case 'row':
-        color = 0xff6b6b;
-        symbol = '↔';
-        break;
-      case 'column':
-        color = 0x74c0fc;
-        symbol = '↕';
-        break;
-      case 'bomb':
-        color = 0xffa94d;
-        symbol = '💥';
-        break;
-      case 'rainbow':
-        color = 0xffd43b;
-        symbol = '🌈';
-        break;
-    }
-
-    // Glowing border for power-up
-    this.powerUpIndicator.lineStyle(3, color, 0.9);
-    this.powerUpIndicator.strokeCircle(0, 0, TILE_SIZE / 2 - 4);
-    this.powerUpIndicator.setVisible(true);
-
-    // Pulsing animation
+    const colors: Record<PowerUpType, number> = {
+      row: 0xff6b6b, column: 0x74c0fc, bomb: 0xffa94d, rainbow: 0xffd43b,
+    };
+    this.puIndicator.clear();
+    this.puIndicator.lineStyle(3, colors[type], 0.9);
+    this.puIndicator.strokeCircle(0, 0, TILE_SIZE / 2 - 3);
+    this.puIndicator.setVisible(true);
     this.scene.tweens.add({
-      targets: this.powerUpIndicator,
-      alpha: { from: 0.5, to: 1 },
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
+      targets: this.puIndicator, alpha: { from: 0.4, to: 1 },
+      duration: 500, yoyo: true, repeat: -1,
     });
   }
 
   activatePowerUp(): { type: PowerUpType; col: number; row: number } | null {
     if (!this.powerUp) return null;
-    const type = this.powerUp;
+    const t = this.powerUp;
     this.powerUp = null;
-    this.powerUpIndicator.setVisible(false);
-    return { type, col: this.col, row: this.row };
+    this.puIndicator.setVisible(false);
+    return { type: t, col: this.col, row: this.row };
   }
 
   playMatchEffect() {
     this.isMatched = true;
-
-    // Scale up + fade out
     this.scene.tweens.add({
-      targets: this,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      alpha: 0,
-      duration: 250,
-      ease: 'Power2',
-      onComplete: () => {
-        this.destroy();
-      },
+      targets: this, scaleX: 1.3, scaleY: 1.3, alpha: 0,
+      duration: 200, ease: 'Power2',
+      onComplete: () => this.destroy(),
     });
-
-    // Spawn particles
-    this.spawnParticles();
-  }
-
-  private spawnParticles() {
-    const count = 6;
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
-      const particle = this.scene.add.graphics();
-      particle.fillStyle(KITTEN_COLORS[this.kittenType], 1);
-      particle.fillCircle(0, 0, 4);
-      particle.setPosition(this.x, this.y);
-
+    // Particles
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2;
+      const p = this.scene.add.graphics();
+      p.fillStyle(KITTEN_COLORS[this.kittenType], 1);
+      p.fillCircle(0, 0, 3);
+      p.setPosition(this.x, this.y);
       this.scene.tweens.add({
-        targets: particle,
-        x: this.x + Math.cos(angle) * 40,
-        y: this.y + Math.sin(angle) * 40,
-        alpha: 0,
-        duration: 400,
-        ease: 'Power2',
-        onComplete: () => particle.destroy(),
+        targets: p,
+        x: this.x + Math.cos(angle) * 35,
+        y: this.y + Math.sin(angle) * 35,
+        alpha: 0, duration: 300, ease: 'Power2',
+        onComplete: () => p.destroy(),
       });
     }
-  }
-
-  playFallEffect(targetY: number, delay: number = 0) {
-    this.scene.tweens.add({
-      targets: this,
-      y: targetY,
-      duration: 200 + delay * 30,
-      delay: delay,
-      ease: 'Bounce.easeOut',
-    });
   }
 
   setGridPos(col: number, row: number) {
@@ -190,24 +127,19 @@ export class Tile extends Phaser.GameObjects.Container {
     this.row = row;
   }
 
-  getWorldPos(): { x: number; y: number } {
-    const targetX = this.col * (TILE_SIZE + 4) + 16 + TILE_SIZE / 2;
-    const targetY = this.row * (TILE_SIZE + 4) + 160 + TILE_SIZE / 2;
-    return { x: targetX, y: targetY };
+  getWorldPos() {
+    return {
+      x: this.col * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_X + TILE_SIZE / 2,
+      y: this.row * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_Y + TILE_SIZE / 2,
+    };
   }
 
-  updatePosition(animated: boolean = true) {
-    const pos = this.getWorldPos();
+  updatePosition(animated = true) {
+    const p = this.getWorldPos();
     if (animated) {
-      this.scene.tweens.add({
-        targets: this,
-        x: pos.x,
-        y: pos.y,
-        duration: 150,
-        ease: 'Power2',
-      });
+      this.scene.tweens.add({ targets: this, x: p.x, y: p.y, duration: 120, ease: 'Power2' });
     } else {
-      this.setPosition(pos.x, pos.y);
+      this.setPosition(p.x, p.y);
     }
   }
 }

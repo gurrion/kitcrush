@@ -1,10 +1,9 @@
-// KitCrush — Game Scene (Core Gameplay)
+// KitCrush — Game Scene
 
 import Phaser from 'phaser';
 import {
   GAME_WIDTH, GAME_HEIGHT, BOARD_COLS, BOARD_ROWS,
-  TILE_SIZE, TILE_GAP, BOARD_OFFSET_X, BOARD_OFFSET_Y,
-  KITTEN_EMOJIS, LEVELS,
+  TILE_SIZE, TILE_GAP, BOARD_OFFSET_X, BOARD_OFFSET_Y, LEVELS,
 } from '../utils/constants';
 import { Board } from '../objects/Board';
 import { Tile } from '../objects/Tile';
@@ -21,20 +20,13 @@ export class GameScene extends Phaser.Scene {
   private scoreManager!: ScoreManager;
   private levelManager!: LevelManager;
   private selectedTile: Tile | null = null;
-
-  // HUD elements
+  private swipeStartX = 0;
+  private swipeStartY = 0;
+  private swipeTile: Tile | null = null;
+  private comboText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private movesText!: Phaser.GameObjects.Text;
-  private targetText!: Phaser.GameObjects.Text;
-  private comboText!: Phaser.GameObjects.Text;
-  private levelText!: Phaser.GameObjects.Text;
   private progressBar!: Phaser.GameObjects.Graphics;
-  private progressBg!: Phaser.GameObjects.Graphics;
-
-  // Touch handling
-  private swipeStartX: number = 0;
-  private swipeStartY: number = 0;
-  private swipeTile: Tile | null = null;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -54,208 +46,147 @@ export class GameScene extends Phaser.Scene {
     // Board background
     const boardBg = this.add.graphics();
     boardBg.fillStyle(0xffffff, 0.05);
-    boardBg.fillRoundedRect(
-      BOARD_OFFSET_X - 8,
-      BOARD_OFFSET_Y - 8,
-      BOARD_COLS * (TILE_SIZE + TILE_GAP) + 16,
-      BOARD_ROWS * (TILE_SIZE + TILE_GAP) + 16,
-      16
-    );
+    const bw = BOARD_COLS * (TILE_SIZE + TILE_GAP) - TILE_GAP;
+    const bh = BOARD_ROWS * (TILE_SIZE + TILE_GAP) - TILE_GAP;
+    boardBg.fillRoundedRect(BOARD_OFFSET_X - 6, BOARD_OFFSET_Y - 6, bw + 12, bh + 12, 12);
 
-    // Initialize systems
+    // Level config
     const levelConfig = this.levelManager.getCurrentLevelConfig();
 
+    // Score manager
     this.scoreManager = new ScoreManager(this);
     this.scoreManager.init(levelConfig.moves, levelConfig.target);
     this.scoreManager.setCallbacks(
       (score, combo) => this.updateScoreDisplay(score, combo),
-      (moves) => this.updateMovesDisplay(moves)
+      (moves) => this.updateMovesDisplay(moves),
     );
 
-    // Initialize board
+    // Board
     this.board = new Board(this);
     this.board.setCallbacks(
       (match) => this.onMatchFound(match),
       (depth) => this.onCascade(depth),
-      (type, col, row) => this.onPowerUpActivated(type, col, row)
+      (type, col, row) => this.onPowerUpActivated(type, col, row),
     );
 
-    // Create HUD
+    // HUD
     this.createHUD(levelConfig);
 
-    // Input handling
+    // Input
     this.setupInput();
 
-    // Animate board entrance
-    this.animateBoardEntrance();
+    // Entrance animation
+    this.board.container.setAlpha(0);
+    this.tweens.add({ targets: this.board.container, alpha: 1, duration: 400 });
   }
 
-  private createHUD(levelConfig: typeof LEVELS[0]) {
-    const hudY = 20;
-
-    // Level name
-    this.levelText = this.add.text(GAME_WIDTH / 2, hudY, `📍 ${levelConfig.name}`, {
-      fontSize: '20px',
-      color: '#ffffff',
-      fontFamily: 'Arial, sans-serif',
-      fontStyle: 'bold',
+  private createHUD(cfg: typeof LEVELS[0]) {
+    this.add.text(GAME_WIDTH / 2, 16, `📍 ${cfg.name}`, {
+      fontSize: '18px', color: '#ffffff',
+      fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
     }).setOrigin(0.5);
 
-    // Score
-    this.scoreText = this.add.text(20, hudY + 35, '🏆 0', {
-      fontSize: '18px',
-      color: '#ffd43b',
-      fontFamily: 'Arial, sans-serif',
+    this.scoreText = this.add.text(16, 42, '🏆 0', {
+      fontSize: '16px', color: '#ffd43b', fontFamily: 'Arial, sans-serif',
     });
 
-    // Moves
-    this.movesText = this.add.text(GAME_WIDTH - 20, hudY + 35, `🎯 ${levelConfig.moves}`, {
-      fontSize: '18px',
-      color: '#74c0fc',
-      fontFamily: 'Arial, sans-serif',
+    this.movesText = this.add.text(GAME_WIDTH - 16, 42, `🎯 ${cfg.moves}`, {
+      fontSize: '16px', color: '#74c0fc', fontFamily: 'Arial, sans-serif',
     }).setOrigin(1, 0);
 
-    // Target
-    this.targetText = this.add.text(GAME_WIDTH / 2, hudY + 35, `Meta: ${levelConfig.target}`, {
-      fontSize: '16px',
-      color: '#aaaaaa',
-      fontFamily: 'Arial, sans-serif',
+    this.add.text(GAME_WIDTH / 2, 42, `Meta: ${cfg.target}`, {
+      fontSize: '14px', color: '#aaa', fontFamily: 'Arial, sans-serif',
     }).setOrigin(0.5);
 
     // Progress bar
-    const barWidth = GAME_WIDTH - 40;
-    const barHeight = 8;
-    const barY = hudY + 60;
-
-    this.progressBg = this.add.graphics();
-    this.progressBg.fillStyle(0x333333, 0.5);
-    this.progressBg.fillRoundedRect(20, barY, barWidth, barHeight, 4);
+    const barW = GAME_WIDTH - 32;
+    const barY = 66;
+    const barH = 6;
+    const pbg = this.add.graphics();
+    pbg.fillStyle(0x333333, 0.5);
+    pbg.fillRoundedRect(16, barY, barW, barH, 3);
 
     this.progressBar = this.add.graphics();
-    this.updateProgressBar(0, levelConfig.target);
 
-    // Combo text (hidden initially)
-    this.comboText = this.add.text(GAME_WIDTH / 2, BOARD_OFFSET_Y - 30, '', {
-      fontSize: '28px',
-      color: '#ff6b9d',
-      fontFamily: 'Arial, sans-serif',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 3,
+    // Combo text
+    this.comboText = this.add.text(GAME_WIDTH / 2, BOARD_OFFSET_Y - 20, '', {
+      fontSize: '24px', color: '#ff6b9d',
+      fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setAlpha(0);
 
-    // Pause/Back button
-    const pauseBtn = this.add.text(GAME_WIDTH - 20, hudY, '⏸️', {
-      fontSize: '24px',
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
-
-    pauseBtn.on('pointerdown', () => {
-      this.scene.start('MenuScene');
-    });
+    // Pause button
+    const pauseBtn = this.add.text(GAME_WIDTH - 16, 14, '⏸️', { fontSize: '20px' })
+      .setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    pauseBtn.on('pointerdown', () => this.scene.start('MenuScene'));
   }
 
   private updateScoreDisplay(score: number, combo: number) {
     this.scoreText.setText(`🏆 ${score}`);
-
-    const levelConfig = this.levelManager.getCurrentLevelConfig();
-    this.updateProgressBar(score, levelConfig.target);
+    const cfg = this.levelManager.getCurrentLevelConfig();
+    const progress = Math.min(score / cfg.target, 1);
+    const barW = GAME_WIDTH - 32;
+    this.progressBar.clear();
+    this.progressBar.fillStyle(0xff6b9d, 1);
+    this.progressBar.fillRoundedRect(16, 66, barW * progress, 6, 3);
 
     if (combo > 1) {
-      this.comboText.setText(`🔥 Combo x${combo}!`);
-      this.comboText.setAlpha(1);
+      this.comboText.setText(`🔥 Combo x${combo}!`).setAlpha(1);
       this.tweens.add({
         targets: this.comboText,
-        y: BOARD_OFFSET_Y - 40,
-        alpha: 0,
-        duration: 1000,
-        ease: 'Power2',
-        onComplete: () => {
-          this.comboText.y = BOARD_OFFSET_Y - 30;
-        },
+        y: BOARD_OFFSET_Y - 30, alpha: 0,
+        duration: 800, ease: 'Power2',
+        onComplete: () => { this.comboText.y = BOARD_OFFSET_Y - 20; },
       });
     }
   }
 
   private updateMovesDisplay(moves: number) {
     this.movesText.setText(`🎯 ${moves}`);
-    if (moves <= 3) {
-      this.movesText.setColor('#ff6b6b');
-    }
-  }
-
-  private updateProgressBar(score: number, target: number) {
-    const barWidth = GAME_WIDTH - 40;
-    const barHeight = 8;
-    const barY = 80;
-    const progress = Math.min(score / target, 1);
-
-    this.progressBar.clear();
-    this.progressBar.fillStyle(0xff6b9d, 1);
-    this.progressBar.fillRoundedRect(20, barY, barWidth * progress, barHeight, 4);
+    if (moves <= 3) this.movesText.setColor('#ff6b6b');
   }
 
   private setupInput() {
-    // Pointer events for both click and swipe
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
       if (this.board.isBusy) return;
-
-      const col = Math.floor((pointer.x - BOARD_OFFSET_X) / (TILE_SIZE + TILE_GAP));
-      const row = Math.floor((pointer.y - BOARD_OFFSET_Y) / (TILE_SIZE + TILE_GAP));
-
+      const col = Math.floor((ptr.x - BOARD_OFFSET_X) / (TILE_SIZE + TILE_GAP));
+      const row = Math.floor((ptr.y - BOARD_OFFSET_Y) / (TILE_SIZE + TILE_GAP));
       if (col < 0 || col >= BOARD_COLS || row < 0 || row >= BOARD_ROWS) return;
 
-      this.swipeStartX = pointer.x;
-      this.swipeStartY = pointer.y;
+      this.swipeStartX = ptr.x;
+      this.swipeStartY = ptr.y;
       this.swipeTile = this.board.getTileAt(col, row);
-
-      const clickedTile = this.swipeTile;
-      if (!clickedTile) return;
+      const clicked = this.swipeTile;
+      if (!clicked) return;
 
       if (this.selectedTile) {
-        // Check if clicking adjacent tile → swap
-        const dc = Math.abs(clickedTile.col - this.selectedTile.col);
-        const dr = Math.abs(clickedTile.row - this.selectedTile.row);
-
+        const dc = Math.abs(clicked.col - this.selectedTile.col);
+        const dr = Math.abs(clicked.row - this.selectedTile.row);
         if ((dc === 1 && dr === 0) || (dc === 0 && dr === 1)) {
-          this.trySwap(this.selectedTile, clickedTile);
+          this.trySwap(this.selectedTile, clicked);
           return;
         }
-
-        // Otherwise, select new tile
         this.selectedTile.deselect();
-        this.selectedTile = clickedTile;
-        clickedTile.select();
-        playSelectSound();
-      } else {
-        this.selectedTile = clickedTile;
-        clickedTile.select();
-        playSelectSound();
       }
+      this.selectedTile = clicked;
+      clicked.select();
+      playSelectSound();
     });
 
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (this.board.isBusy || !this.swipeTile || !pointer.isDown) return;
+    this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
+      if (this.board.isBusy || !this.swipeTile || !ptr.isDown) return;
+      const dx = ptr.x - this.swipeStartX;
+      const dy = ptr.y - this.swipeStartY;
+      if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
 
-      const dx = pointer.x - this.swipeStartX;
-      const dy = pointer.y - this.swipeStartY;
-      const threshold = 20;
+      let tc = this.swipeTile.col;
+      let tr = this.swipeTile.row;
+      if (Math.abs(dx) > Math.abs(dy)) tc += dx > 0 ? 1 : -1;
+      else tr += dy > 0 ? 1 : -1;
 
-      if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
-        let targetCol = this.swipeTile.col;
-        let targetRow = this.swipeTile.row;
-
-        if (Math.abs(dx) > Math.abs(dy)) {
-          targetCol += dx > 0 ? 1 : -1;
-        } else {
-          targetRow += dy > 0 ? 1 : -1;
-        }
-
-        const targetTile = this.board.getTileAt(targetCol, targetRow);
-        if (targetTile) {
-          this.trySwap(this.swipeTile, targetTile);
-        }
-        this.swipeTile = null;
-      }
+      const target = this.board.getTileAt(tc, tr);
+      if (target) this.trySwap(this.swipeTile, target);
+      this.swipeTile = null;
     });
   }
 
@@ -264,12 +195,9 @@ export class GameScene extends Phaser.Scene {
       this.selectedTile.deselect();
       this.selectedTile = null;
     }
-
     playSwapSound();
-
-    const success = await this.board.swapTiles(t1, t2);
-
-    if (success) {
+    const ok = await this.board.swapTiles(t1, t2);
+    if (ok) {
       this.scoreManager.useMove();
       this.checkGameState();
     } else {
@@ -278,67 +206,37 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onMatchFound(match: Match) {
-    const tileCount = match.tiles.length;
-    this.scoreManager.addMatchScore(tileCount);
+    this.scoreManager.addMatchScore(match.tiles.length);
     playMatchSound(this.scoreManager.combo);
   }
 
-  private onCascade(depth: number) {
-    playCascadeSound(depth);
-  }
-
-  private onPowerUpActivated(type: string, col: number, row: number) {
-    playPowerUpSound();
-  }
+  private onCascade(depth: number) { playCascadeSound(depth); }
+  private onPowerUpActivated(_t: string, _c: number, _r: number) { playPowerUpSound(); }
 
   private checkGameState() {
-    const levelConfig = this.levelManager.getCurrentLevelConfig();
-
-    // Check win
     if (this.scoreManager.hasReachedTarget()) {
-      this.time.delayedCall(500, () => {
+      this.time.delayedCall(400, () => {
         const stars = this.scoreManager.getStars();
         this.levelManager.completeLevel(stars);
         this.scene.start('GameOverScene', {
-          won: true,
-          score: this.scoreManager.score,
-          stars,
-          levelManager: this.levelManager,
+          won: true, score: this.scoreManager.score,
+          stars, levelManager: this.levelManager,
         });
       });
       return;
     }
-
-    // Check lose
     if (!this.scoreManager.hasMovesLeft()) {
-      this.time.delayedCall(500, () => {
+      this.time.delayedCall(400, () => {
         this.scene.start('GameOverScene', {
-          won: false,
-          score: this.scoreManager.score,
-          stars: 0,
-          levelManager: this.levelManager,
+          won: false, score: this.scoreManager.score,
+          stars: 0, levelManager: this.levelManager,
         });
       });
       return;
     }
-
-    // Check if shuffle needed
     if (!this.board.isBusy) {
-      const matchFinder = new MatchFinder(this.board.tiles);
-      if (!matchFinder.hasPossibleMoves()) {
-        this.board.shuffle();
-      }
+      const mf = new MatchFinder(this.board.tiles);
+      if (!mf.hasPossibleMoves()) this.board.shuffle();
     }
-  }
-
-  private animateBoardEntrance() {
-    // Board fades in
-    this.board.container.setAlpha(0);
-    this.tweens.add({
-      targets: this.board.container,
-      alpha: 1,
-      duration: 500,
-      ease: 'Power2',
-    });
   }
 }

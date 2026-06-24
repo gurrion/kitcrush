@@ -1,36 +1,42 @@
 // KitCrush — Main Entry Point
 
 import Phaser from 'phaser';
-import { gameConfig } from './config';
+import { BootScene } from './scenes/BootScene';
+import { MenuScene } from './scenes/MenuScene';
+import { GameScene } from './scenes/GameScene';
+import { GameOverScene } from './scenes/GameOverScene';
 
-// Start the game
-const game = new Phaser.Game(gameConfig);
+const config: Phaser.Types.Core.GameConfig = {
+  type: Phaser.AUTO,
+  width: 480,
+  height: 720,
+  parent: 'game-container',
+  backgroundColor: '#1a1a2e',
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  scene: [BootScene, MenuScene, GameScene, GameOverScene],
+  input: {
+    activePointers: 2,
+  },
+  render: {
+    antialias: true,
+    pixelArt: false,
+  },
+};
 
-// Handle visibility change (pause when tab/app is hidden)
+const game = new Phaser.Game(config);
+
+// Pause/resume on visibility change
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    game.scene.scenes.forEach(scene => {
-      if (scene.scene.isActive()) {
-        scene.scene.pause();
-      }
+    game.scene.scenes.forEach(s => {
+      if (s.scene.isActive()) s.scene.pause();
     });
   } else {
-    game.scene.scenes.forEach(scene => {
-      if (scene.scene.isPaused()) {
-        scene.scene.resume();
-      }
+    game.scene.scenes.forEach(s => {
+      if (s.scene.isPaused()) s.scene.resume();
     });
   }
-});
-
-// Prevent default touch behaviors (scrolling, zooming)
-document.addEventListener('touchmove', (e) => {
-  if (e.target instanceof HTMLCanvasElement) {
-    e.preventDefault();
-  }
-}, { passive: false });
-
-// Handle resize
-window.addEventListener('resize', () => {
-  game.scale.refresh();
 });

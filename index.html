@@ -4,125 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#1a1a2e">
-  <title>🐱 KitCrush - Match-3 de Gatitos</title>
+  <title>🐱 KitCrush</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #1a1a2e;
-      font-family: Arial, Helvetica, sans-serif;
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-      touch-action: none;
-    }
-    
-    #game-container {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    
-    #game-container canvas {
-      display: block;
-      max-width: 100%;
-      max-height: 100%;
-    }
-    
-    /* Loading screen */
-    #loading-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%; overflow: hidden;
       background: #1a1a2e;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      transition: opacity 0.3s;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
     }
-    
-    #loading-screen.hidden {
-      opacity: 0;
-      pointer-events: none;
+    #game-container {
+      width: 100%; height: 100%;
+      display: flex; justify-content: center; align-items: center;
     }
-    
-    #loading-screen .emoji {
-      font-size: 64px;
-      animation: bounce 1s infinite;
-    }
-    
-    #loading-screen .text {
-      color: #ff6b9d;
-      font-size: 24px;
-      margin-top: 16px;
-      font-weight: bold;
-    }
-    
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-20px); }
-    }
+    #game-container canvas { display: block; }
   </style>
 </head>
 <body>
-  <div id="loading-screen">
-    <div class="emoji">🐱</div>
-    <div class="text">Cargando KitCrush...</div>
-  </div>
-  <div id="auth-screen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#1a1a2e;z-index:2000;flex-direction:column;justify-content:center;align-items:center;gap:16px;">
-    <div style="font-size:48px;">🐱🔒</div>
-    <div style="color:#ff6b9d;font-size:20px;font-weight:bold;">KitCrush</div>
-    <input id="auth-pwd" type="password" placeholder="Contraseña..." autocomplete="off"
-      style="background:#2a2a3e;border:2px solid #ff6b9d;border-radius:12px;padding:12px 20px;color:#fff;font-size:16px;text-align:center;outline:none;width:220px;">
-    <button id="auth-btn" onclick="checkAuth()"
-      style="background:#ff6b9d;border:none;border-radius:12px;padding:12px 32px;color:#fff;font-size:16px;font-weight:bold;cursor:pointer;">Entrar</button>
-    <div id="auth-error" style="color:#ff6b6b;font-size:14px;display:none;">Contraseña incorrecta</div>
-  </div>
   <div id="game-container"></div>
   <script type="module" src="/src/main.ts"></script>
-  <script>
-    const PWD = 'gatitos2026';
-
-    function checkAuth() {
-      const input = document.getElementById('auth-pwd').value;
-      if (input === PWD) {
-        sessionStorage.setItem('kc_auth', '1');
-        document.getElementById('auth-screen').style.display = 'none';
-      } else {
-        document.getElementById('auth-error').style.display = 'block';
-        document.getElementById('auth-pwd').value = '';
-      }
-    }
-
-    document.getElementById('auth-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') checkAuth(); });
-
-    window.addEventListener('load', () => {
-      const loading = document.getElementById('loading-screen');
-      if (loading) {
-        loading.classList.add('hidden');
-        setTimeout(() => loading.remove(), 300);
-      }
-      if (!sessionStorage.getItem('kc_auth')) {
-        document.getElementById('auth-screen').style.display = 'flex';
-      }
-    });
-  </script>
 </body>
 </html>
