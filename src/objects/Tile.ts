@@ -1,7 +1,11 @@
-// KitCrush — Tile
+// KitCrush — Tile (arcade style with SVG sprites)
 
 import Phaser from 'phaser';
-import { TILE_SIZE, TILE_GAP, BOARD_OFFSET_X, BOARD_OFFSET_Y, KITTEN_COLORS, KITTEN_EMOJIS, PowerUpType } from '../utils/constants';
+import {
+  TILE_SIZE, TILE_GAP, BOARD_OFFSET_X, BOARD_OFFSET_Y,
+  KITTEN_COLORS, PowerUpType,
+} from '../utils/constants';
+import { KITTEN_COLORS_HEX } from '../utils/kitten-svg';
 
 export class Tile extends Phaser.GameObjects.Container {
   public col: number;
@@ -12,8 +16,9 @@ export class Tile extends Phaser.GameObjects.Container {
   public isMatched = false;
 
   private bg: Phaser.GameObjects.Graphics;
-  private selOutline: Phaser.GameObjects.Graphics;
-  private puIndicator: Phaser.GameObjects.Graphics;
+  private sprite: Phaser.GameObjects.Image;
+  private selGlow: Phaser.GameObjects.Graphics;
+  private puGlow: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene, col: number, row: number, kittenType: number) {
     const x = col * (TILE_SIZE + TILE_GAP) + BOARD_OFFSET_X + TILE_SIZE / 2;
@@ -24,24 +29,23 @@ export class Tile extends Phaser.GameObjects.Container {
     this.row = row;
     this.kittenType = kittenType;
 
-    // Background
+    // Background tile
     this.bg = scene.add.graphics();
     this.drawBg();
     this.add(this.bg);
 
-    // Emoji
-    const emoji = scene.add.text(0, 0, KITTEN_EMOJIS[kittenType], {
-      fontSize: `${Math.floor(TILE_SIZE * 0.6)}px`, align: 'center',
-    }).setOrigin(0.5);
-    this.add(emoji);
+    // SVG kitten sprite
+    this.sprite = scene.add.image(0, 0, `kitten_${kittenType}`);
+    this.sprite.setDisplaySize(TILE_SIZE - 6, TILE_SIZE - 6);
+    this.add(this.sprite);
 
-    // Selection outline
-    this.selOutline = scene.add.graphics().setVisible(false);
-    this.add(this.selOutline);
+    // Selection glow
+    this.selGlow = scene.add.graphics().setVisible(false);
+    this.add(this.selGlow);
 
-    // Power-up indicator
-    this.puIndicator = scene.add.graphics().setVisible(false);
-    this.add(this.puIndicator);
+    // Power-up glow
+    this.puGlow = scene.add.graphics().setVisible(false);
+    this.add(this.puGlow);
 
     this.setSize(TILE_SIZE, TILE_SIZE);
     this.setInteractive();
@@ -51,19 +55,24 @@ export class Tile extends Phaser.GameObjects.Container {
   private drawBg() {
     const s = TILE_SIZE;
     this.bg.clear();
-    this.bg.fillStyle(KITTEN_COLORS[this.kittenType], 0.3);
+    // Dark rounded square with colored border
+    this.bg.fillStyle(0x1e1e3a, 0.8);
     this.bg.fillRoundedRect(-s / 2, -s / 2, s, s, 10);
-    this.bg.lineStyle(2, KITTEN_COLORS[this.kittenType], 0.6);
+    this.bg.lineStyle(2, KITTEN_COLORS[this.kittenType], 0.5);
     this.bg.strokeRoundedRect(-s / 2, -s / 2, s, s, 10);
   }
 
   select() {
     this.isSelected = true;
     const s = TILE_SIZE;
-    this.selOutline.clear();
-    this.selOutline.lineStyle(3, 0xffffff, 1);
-    this.selOutline.strokeRoundedRect(-s / 2 - 2, -s / 2 - 2, s + 4, s + 4, 12);
-    this.selOutline.setVisible(true);
+    this.selGlow.clear();
+    // Neon glow effect
+    this.selGlow.lineStyle(3, 0xffffff, 0.9);
+    this.selGlow.strokeRoundedRect(-s / 2 - 3, -s / 2 - 3, s + 6, s + 6, 12);
+    this.selGlow.lineStyle(6, KITTEN_COLORS[this.kittenType], 0.3);
+    this.selGlow.strokeRoundedRect(-s / 2 - 5, -s / 2 - 5, s + 10, s + 10, 14);
+    this.selGlow.setVisible(true);
+
     this.scene.tweens.add({
       targets: this, scaleX: 1.12, scaleY: 1.12,
       duration: 80, yoyo: true, ease: 'Back.easeOut',
@@ -72,7 +81,7 @@ export class Tile extends Phaser.GameObjects.Container {
 
   deselect() {
     this.isSelected = false;
-    this.selOutline.setVisible(false);
+    this.selGlow.setVisible(false);
   }
 
   setPowerUp(type: PowerUpType) {
@@ -80,12 +89,13 @@ export class Tile extends Phaser.GameObjects.Container {
     const colors: Record<PowerUpType, number> = {
       row: 0xff6b6b, column: 0x74c0fc, bomb: 0xffa94d, rainbow: 0xffd43b,
     };
-    this.puIndicator.clear();
-    this.puIndicator.lineStyle(3, colors[type], 0.9);
-    this.puIndicator.strokeCircle(0, 0, TILE_SIZE / 2 - 3);
-    this.puIndicator.setVisible(true);
+    this.puGlow.clear();
+    this.puGlow.lineStyle(3, colors[type], 0.8);
+    this.puGlow.strokeCircle(0, 0, TILE_SIZE / 2 - 2);
+    this.puGlow.setVisible(true);
+
     this.scene.tweens.add({
-      targets: this.puIndicator, alpha: { from: 0.4, to: 1 },
+      targets: this.puGlow, alpha: { from: 0.3, to: 1 },
       duration: 500, yoyo: true, repeat: -1,
     });
   }
@@ -94,29 +104,52 @@ export class Tile extends Phaser.GameObjects.Container {
     if (!this.powerUp) return null;
     const t = this.powerUp;
     this.powerUp = null;
-    this.puIndicator.setVisible(false);
+    this.puGlow.setVisible(false);
     return { type: t, col: this.col, row: this.row };
   }
 
   playMatchEffect() {
     this.isMatched = true;
+
+    // Flash white
+    const flash = this.scene.add.graphics();
+    flash.fillStyle(0xffffff, 0.6);
+    flash.fillRoundedRect(-TILE_SIZE / 2, -TILE_SIZE / 2, TILE_SIZE, TILE_SIZE, 10);
+    this.add(flash);
     this.scene.tweens.add({
-      targets: this, scaleX: 1.3, scaleY: 1.3, alpha: 0,
-      duration: 200, ease: 'Power2',
+      targets: flash, alpha: 0, duration: 150,
+      onComplete: () => flash.destroy(),
+    });
+
+    // Scale + fade
+    this.scene.tweens.add({
+      targets: this, scaleX: 1.4, scaleY: 1.4, alpha: 0,
+      duration: 220, ease: 'Power2',
       onComplete: () => this.destroy(),
     });
+
     // Particles
-    for (let i = 0; i < 5; i++) {
-      const angle = (i / 5) * Math.PI * 2;
+    this.spawnParticles();
+  }
+
+  private spawnParticles() {
+    const color = KITTEN_COLORS[this.kittenType];
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const dist = 25 + Math.random() * 20;
       const p = this.scene.add.graphics();
-      p.fillStyle(KITTEN_COLORS[this.kittenType], 1);
-      p.fillCircle(0, 0, 3);
+      p.fillStyle(color, 1);
+      const pSize = 2 + Math.random() * 3;
+      p.fillCircle(0, 0, pSize);
       p.setPosition(this.x, this.y);
+
       this.scene.tweens.add({
         targets: p,
-        x: this.x + Math.cos(angle) * 35,
-        y: this.y + Math.sin(angle) * 35,
-        alpha: 0, duration: 300, ease: 'Power2',
+        x: this.x + Math.cos(angle) * dist,
+        y: this.y + Math.sin(angle) * dist,
+        alpha: 0, scaleX: 0.3, scaleY: 0.3,
+        duration: 300 + Math.random() * 150,
+        ease: 'Power2',
         onComplete: () => p.destroy(),
       });
     }
